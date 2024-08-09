@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전자 서명 양식</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #signature-pad {
+            border: 1px solid #ccc;
+            width: 100%;
+            max-width: 300px; /* 서명란의 너비를 줄임 */
+            height: 100px;    /* 서명란의 높이를 줄임 */
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Firebase 모듈 가져오기
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js';
+        import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js';
+        import { getDatabase, ref as dbRef, set } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js';
+
+        // Firebase 설정 및 초기화
+        const firebaseConfig = {
+            apiKey: "AIzaSyCzOWsqoJ2DW45lzYIGehC5gEhBFFjQkg4",
+            authDomain: "taein-24032.firebaseapp.com",
+            projectId: "taein-24032",
+            storageBucket: "taein-24032.appspot.com",
+            messagingSenderId: "974345716486",
+            appId: "1:974345716486:web:d43cae89afa87543d5d487",
+            measurementId: "G-Q3X6KKMZ1M"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+        const database = getDatabase(app);
+
+        // 서명을 Firebase Storage에 저장하는 함수
+        function saveSignatureToFirebase(dataURL) {
+            const storageRef = ref(storage, 'signatures/' + Date.now() + '.png');
+
+            fetch(dataURL)
+                .then(res => res.blob())
+                .then(blob => {
+                    return uploadBytes(storageRef, blob);
+                })
+                .then(snapshot => {
+                    return getDownloadURL(snapshot.ref);
+                })
+                .then(downloadURL => {
+                    const newSignatureRef = dbRef(database, 'signatures/' + Date.now());
+                    set(newSignatureRef, {
+                        url: downloadURL,
+                        timestamp: Date.now()
+                    });
+                    alert('Signature uploaded successfully!');
+                })
+                .catch(error => {
+                    console.error('Error uploading signature:', error);
+                });
+        }
+
+        // 이벤트 리스너 설정
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.querySelector("canvas");
+            const signaturePad = new SignaturePad(canvas);
+
+            function resizeCanvas() {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                signaturePad.clear();
+            }
+
+            window.addEventListener("resize", resizeCanvas);
+            resizeCanvas();
+
+            document.getElementById("clear").addEventListener("click", () => {
+                signaturePad.clear();
+            });
+
+            document.getElementById("save").addEventListener("click", () => {
+                if (signaturePad.isEmpty()) {
+                    alert("Please provide a signature first.");
+                } else {
+                    const dataURL = signaturePad.toDataURL();
+                    saveSignatureToFirebase(dataURL);
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>전자 서명 양식</h1>
+    <div id="signature-pad">
+        <canvas></canvas>
+    </div>
+    <button id="clear">Clear</button>
+    <button id="save">Save</button>
+</body>
+</html>
