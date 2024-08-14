@@ -32,10 +32,11 @@
             border: 1px solid #ccc;
             width: 100%;
             height: 100px;
-            overflow: hidden; /* Ensure signature does not overflow */
-            position: relative; /* Position for canvas */
+            overflow: hidden;
+            position: relative;
         }
         canvas {
+            border: 1px solid #ddd;
             width: 100%;
             height: 100%;
         }
@@ -62,11 +63,7 @@
             appId: "1:974345716486:web:d43cae89afa87543d5d487",
             measurementId: "G-Q3X6KKMZ1M"
         };
-
-        // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
-
-        // Firebase Storage 및 Realtime Database 참조 생성
         var storage = firebase.storage();
         var database = firebase.database();
     </script>
@@ -154,4 +151,9 @@
                     console.error('Error uploading signature:', error);
                 })
                 .finally(function() {
-                    document.getElementById("loading").style.display
+                    document.getElementById("loading").style.display = "none";  // Hide loading indicator
+                });
+        }
+    </script>
+</body>
+</html>
