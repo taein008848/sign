@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,13 +14,36 @@
             height: 100vh;
             margin: 0;
         }
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 300px;
+        }
+        #name {
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            text-align: center;
+        }
         #signature-pad {
             border: 1px solid #ccc;
             width: 100%;
-            max-width: 300px; /* 서명란의 너비를 줄임 */
-            height: 100px;    /* 서명란의 높이를 줄임 */
+            height: 100px;
+            overflow: hidden; /* Ensure signature does not overflow */
+            position: relative; /* Position for canvas */
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
         }
         button {
+            margin-top: 10px;
+        }
+        #loading {
+            display: none;
             margin-top: 10px;
         }
     </style>
@@ -39,24 +62,28 @@
             appId: "1:974345716486:web:d43cae89afa87543d5d487",
             measurementId: "G-Q3X6KKMZ1M"
         };
-        
+
         // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
-        
+
         // Firebase Storage 및 Realtime Database 참조 생성
         var storage = firebase.storage();
         var database = firebase.database();
     </script>
 </head>
 <body>
-    <h1>전자 서명 양식</h1>
-    <div id="signature-pad">
-        <canvas></canvas>
+    <div id="container">
+        <h1>전자 서명 양식</h1>
+        <input type="text" id="name" placeholder="이름을 입력하세요" required>
+        <div id="signature-pad">
+            <canvas></canvas>
+        </div>
+        <button id="clear">Clear</button>
+        <button id="save">Save</button>
+        <div id="loading">Uploading...</div>
+        <img id="signature-image" src="" alt="Signature Image" style="display:none;"/>
     </div>
-    <button id="clear">Clear</button>
-    <button id="save">Save</button>
-    <img id="signature-image" src="" alt="Signature Image" style="display:none;"/>
-    
+
     <!-- Signature Pad -->
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     
@@ -80,27 +107,32 @@
         });
 
         document.getElementById("save").addEventListener("click", function() {
+            var name = document.getElementById("name").value.trim();
+
+            if (!name) {
+                alert("Please enter your name.");
+                return;
+            }
+
             if (signaturePad.isEmpty()) {
                 alert("Please provide a signature first.");
-            } else {
-                var dataURL = signaturePad.toDataURL();
-                var img = document.getElementById("signature-image");
-                img.src = dataURL;
-                img.style.display = "block";  // 이미지 표시
-                
-                // Firebase에 서명 저장 함수 호출
-                saveSignatureToFirebase(dataURL);
+                return;
             }
+
+            var dataURL = signaturePad.toDataURL();
+            var img = document.getElementById("signature-image");
+            img.src = dataURL;
+            img.style.display = "block";  // 이미지 표시
+
+            document.getElementById("loading").style.display = "block";  // Show loading indicator
+
+            saveSignatureToFirebase(dataURL, name);
         });
 
-        function saveSignatureToFirebase(dataURL) {
-            // storage 변수가 제대로 정의되었는지 확인
-            console.log('Firebase Storage:', storage);
-
+        function saveSignatureToFirebase(dataURL, name) {
             var storageRef = storage.ref();
-            var signatureRef = storageRef.child('signatures/' + Date.now() + '.png');
+            var signatureRef = storageRef.child('signatures/' + name + '_' + Date.now() + '.png');
 
-            // 데이터 URL을 Blob으로 변환
             fetch(dataURL)
                 .then(function(res) { return res.blob(); })
                 .then(function(blob) {
@@ -110,9 +142,9 @@
                     return snapshot.ref.getDownloadURL();
                 })
                 .then(function(downloadURL) {
-                    // 실시간 데이터베이스에 서명 URL 저장
                     var newSignatureRef = database.ref('signatures').push();
                     newSignatureRef.set({
+                        name: name,
                         url: downloadURL,
                         timestamp: Date.now()
                     });
@@ -120,8 +152,6 @@
                 })
                 .catch(function(error) {
                     console.error('Error uploading signature:', error);
-                });
-        }
-    </script>
-</body>
-</html>
+                })
+                .finally(function() {
+                    document.getElementById("loading").style.display
